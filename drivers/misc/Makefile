@@ -86,3 +86,4 @@ $(obj)/lkdtm_rodata_objcopy.o: $(obj)/lkdtm_rodata.o FORCE
 
 obj-$(CONFIG_OKL4_LINK_SHBUF)    += okl4-link-shbuf.o
 obj-$(CONFIG_DROPBOX) += dropbox.o
+obj-$(CONFIG_SENSORS_STML0XX) += stml0xx/
