@@ -1538,6 +1538,34 @@ static int update_time(struct inode *inode, struct timespec *time, int flags)
 	return update_time(inode, time, flags);
 }
 
+static bool partial_relatime_needs_update(const struct path *path,
+	struct inode *inode)
+{
+	struct timespec now;
+
+	if (!(inode->i_flags & S_RELATIME))
+		return false;
+
+	now = current_fs_time(inode->i_sb);
+
+	if (timespec_compare(&inode->i_mtime, &inode->i_atime) >= 0) {
+		pr_debug("%s: %lu - younger mtime\n", __func__, inode->i_ino);
+		return true;
+	}
+
+	if (timespec_compare(&inode->i_ctime, &inode->i_atime) >= 0) {
+		pr_debug("%s: %lu - younger ctime\n", __func__, inode->i_ino);
+		return true;
+	}
+
+	if ((long)(now.tv_sec - inode->i_atime.tv_sec) >= 24*60*60) {
+		pr_debug("%s: %lu - atime older than a day\n", __func__,
+			inode->i_ino);
+		return true;
+	}
+
+	return false;
+}
 /**
  *	touch_atime	-	update the access time
  *	@path: the &struct path to update
@@ -1551,6 +1579,9 @@ void touch_atime(const struct path *path)
 	struct vfsmount *mnt = path->mnt;
 	struct inode *inode = path->dentry->d_inode;
 	struct timespec now;
+
+	if (partial_relatime_needs_update(path, inode))
+		goto update_time;
 
 	if (inode->i_flags & S_NOATIME)
 		return;
@@ -1572,6 +1603,7 @@ void touch_atime(const struct path *path)
 	if (timespec_equal(&inode->i_atime, &now))
 		return;
 
+update_time:
 	if (!sb_start_write_trylock(inode->i_sb))
 		return;
 
@@ -1845,8 +1877,14 @@ void inode_init_owner(struct inode *inode, const struct inode *dir,
 	inode->i_uid = current_fsuid();
 	if (dir && dir->i_mode & S_ISGID) {
 		inode->i_gid = dir->i_gid;
+
+		/* Directories are special, and always inherit S_ISGID */
 		if (S_ISDIR(mode))
 			mode |= S_ISGID;
+		else if ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP) &&
+			 !in_group_p(inode->i_gid) &&
+			 !capable_wrt_inode_uidgid(dir, CAP_FSETID))
+			mode &= ~S_ISGID;
 	} else
 		inode->i_gid = current_fsgid();
 	inode->i_mode = mode;
