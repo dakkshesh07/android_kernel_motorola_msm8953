@@ -53,7 +53,7 @@ ifeq ($(KERNEL_BUILD), 0)
 #Flag to enable Protected Managment Frames (11w) feature
 ifneq ($(CONFIG_PRONTO_WLAN),)
     CONFIG_WLAN_FEATURE_11W := y
-    endif
+endif
 
 #Flag to enable new Linux Regulatory implementation
     CONFIG_ENABLE_LINUX_REG := y
@@ -61,7 +61,7 @@ ifneq ($(CONFIG_PRONTO_WLAN),)
 #Flag to enable offload packets feature
     CONFIG_WLAN_OFFLOAD_PACKETS := y
 
-    endif
+endif
 #Flag to enable AP Find feature
 CONFIG_WLAN_FEATURE_AP_FIND := y
 
