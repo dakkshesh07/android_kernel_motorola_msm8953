@@ -529,6 +529,13 @@ config TRACER_PKT
 	  processor communication protocols. The profiling information
 	  can be logged into the tracer packet itself.
 
+config POTTER_DTB
+	depends on ARCH_QCOM
+	default y
+	bool "Potter DTBs"
+	help
+	  Include Potter specific DTBs during compilation.
+
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX
