@@ -247,10 +247,6 @@ static struct smtc_reg_data sx9310_i2c_reg_setup[] = {
 		.reg = SX9310_CPS_CTRL0_REG,
 		.val = 0x57,
 	},
-	{
-		.reg = SX9310_CPSRD,
-		.val = 0x00,
-	},
 };
 
 
@@ -282,6 +278,9 @@ struct sx9310_platform_data {
 	bool cap_vdd_en;
 	bool cap_svdd_en;
 	unsigned irq_gpio;
+	/* used for custom setting for channel and scan period */
+	u32 cust_prox_ctrl0;
+	u32 cust_raw_data_channel;
 	pbuttonInformation_t pbuttonInformation;
 
 	int (*get_is_nirq_low)(unsigned irq_gpio);
