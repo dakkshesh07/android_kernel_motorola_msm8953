@@ -26,8 +26,7 @@
 #include <linux/gpio.h>
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
-#include <linux/input/synaptics_dsx_mmi.h>
-
+#include <linux/input/synaptics_rmi_dsx.h>
 #include "synaptics_dsx_i2c.h"
 
 #define CHAR_DEVICE_NAME "rmi"
@@ -338,7 +337,6 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&(dev_data->file_mutex));
 
-
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
@@ -357,7 +355,7 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 	if (tb->buf_size < count && alloc_buffer(tb, count) != 0) {
 		retval = -ENOMEM;
 		goto clean_up;
-        }
+	}
 
 	retval = rmidev->fn_ptr->read(rmidev->rmi4_data,
 			*f_pos,
@@ -373,7 +371,6 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 
 clean_up:
 	mutex_unlock(&(dev_data->file_mutex));
-
 	return retval;
 }
 
@@ -399,16 +396,16 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 
 	mutex_lock(&(dev_data->file_mutex));
 
-	if (*f_pos > REG_ADDR_LIMIT) {
-		retval = -EFAULT;
-		goto clean_up;
-	}
-
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
 	if (count == 0) {
 		retval = 0;
+		goto clean_up;
+	}
+
+	if (*f_pos > REG_ADDR_LIMIT) {
+		retval = -EFAULT;
 		goto clean_up;
 	}
 
@@ -433,7 +430,6 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 
 clean_up:
 	mutex_unlock(&(dev_data->file_mutex));
-
 	return retval;
 }
 
@@ -488,9 +484,9 @@ static int rmidev_release(struct inode *inp, struct file *filp)
 
 	tb = &dev_data->data_buf;
 	if (tb->buf_size != 0) {
-	  kfree(tb->buf);
-	  tb->buf = NULL;
-	  tb->buf_size = 0;
+		kfree(tb->buf);
+		tb->buf = NULL;
+		tb->buf_size = 0;
 	}
 
 	dev_data->ref_count--;

@@ -3,7 +3,7 @@
 #
 menuconfig TOUCHSCREEN_SYNAPTICS_DSX_MMI
 	tristate "Synaptics DSX touchscreen in MMI revision"
-	default n
+	default y
 	help
 	  Say Y here if you have a Synaptics DSX touchscreen connected
 	  to your system. This revision supports MMI features.

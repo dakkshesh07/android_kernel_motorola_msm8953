@@ -100,9 +100,37 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
+#define MAX_NUMBER_TRACKED_RESUMES 10
+
 #define PRODUCT_INFO_SIZE 2
 #define PRODUCT_ID_SIZE 10
 
+/*
+ * struct synaptics_rmi4_resume_info - information about a resume
+ * @start: time when resume started
+ * @finish: time when resume finished
+ * @isr: time of the first isr after resume
+ * @send_touch: time of the first send touch event after resume
+ * @purge_off: time when events are no longer ignored after resume
+ */
+struct synaptics_rmi4_resume_info {
+	struct timespec start;
+	struct timespec finish;
+	struct timespec isr;
+	struct timespec send_touch;
+	struct timespec purge_off;
+	int    ignored_events;
+};
+#define MAX_NUMBER_TRACKED_IRQS 150
+/*
+ * struct synaptics_rmi4_irq_info - information about an interrupt
+ * Using structure (instead of 1 variable) in case we want to add
+ * more debugging information.
+ * @irq_time: time when isr starts
+ */
+struct synaptics_rmi4_irq_info {
+	struct timespec irq_time;
+};
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
  * @query_base_addr: base address for query registers
@@ -413,13 +441,6 @@ struct synaptics_rmi4_func_packet_regs {
 	struct synaptics_rmi4_packet_reg *regs;
 };
 
-struct reporting_ctrl {
-	bool reporting_stopped;
-	unsigned int events_cnt;
-	int expected, max_seen;
-	struct semaphore ctrl_sema;
-};
-
 #define MAX_READ_WRITE_SIZE 8096
 #define MIN_READ_WRITE_BUF_SIZE 256
 
@@ -457,6 +478,9 @@ struct temp_buffer {
  * @ic_on: touch ic power state
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
  * @wait: wait queue for touch data polling in interrupt thread
+ * @number_resumes: total number of remembered resumes
+ * @last_resume: last resume's number (index of the location of resume)
+ * @resume_info:  information about last few resumes
  * @number_irq: total number of remembered interrupt times
  * @last_irq: last interrup time's number (index of the location of interrupt)
  * @irq_info:  information about last few interrupt times
@@ -512,8 +536,11 @@ struct synaptics_rmi4_data {
 	void (*set_state)(struct synaptics_rmi4_data *rmi4_data, int state);
 	int (*ready_state)(struct synaptics_rmi4_data *rmi4_data, bool standby);
 	int (*irq_enable)(struct synaptics_rmi4_data *rmi4_data, bool enable);
-	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
 	int (*get_status)(struct synaptics_rmi4_data *rmi4_data);
+	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
+	int number_resumes;
+	int last_resume;
+	struct synaptics_rmi4_resume_info *resume_info;
 	int number_irq;
 	int last_irq;
 	struct synaptics_rmi4_irq_info *irq_info;
@@ -546,9 +573,6 @@ struct synaptics_rmi4_data {
 	struct mutex rmi4_exp_init_mutex;
 	uint32_t pm_qos_latency;
 	struct pm_qos_request pm_qos_irq;
-
-	struct reporting_ctrl rctrl;
-	unsigned char tsb_buff_clean_flag;
 
 	bool touch_data_contiguous;
 	uint8_t *touch_data;
@@ -689,4 +713,38 @@ extern int FPS_register_notifier(struct notifier_block *nb,
 				unsigned long stype, bool report);
 extern int FPS_unregister_notifier(struct notifier_block *nb,
 				unsigned long stype);
+
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_TEST_REPORTING)
+int synaptics_rmi4_scan_f54_ctrl_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs);
+
+int synaptics_rmi4_scan_f54_cmd_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs);
+
+int synaptics_rmi4_scan_f54_data_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs);
+
+int synaptics_rmi4_scan_f54_query_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs);
+#else
+static inline int synaptics_rmi4_scan_f54_ctrl_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs) {
+	return -ENOSYS;
+}
+
+static inline int synaptics_rmi4_scan_f54_cmd_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs) {
+	return -ENOSYS;
+}
+
+static inline int synaptics_rmi4_scan_f54_data_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs) {
+	return -ENOSYS;
+}
+
+static inline int synaptics_rmi4_scan_f54_query_reg_info(
+	struct synaptics_rmi4_func_packet_regs *regs) {
+	return -ENOSYS;
+}
+#endif
 #endif
