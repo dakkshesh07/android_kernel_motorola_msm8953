@@ -35,6 +35,7 @@
 #include <linux/epl8802.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
+#include <linux/pm.h>
 
 
 /******************************************************************************
@@ -2855,8 +2856,9 @@ err_free_ps_input_device:
 
 /*----------------------------------------------------------------------------*/
 #ifdef CONFIG_SUSPEND
-static int epl_sensor_suspend(struct i2c_client *client, pm_message_t mesg)
+static int epl_sensor_suspend(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct epl_sensor_priv *epld = i2c_get_clientdata(client);
 
 	LOG_FUN();
@@ -2897,8 +2899,9 @@ static int epl_sensor_suspend(struct i2c_client *client, pm_message_t mesg)
 	return 0;
 }
 
-static int epl_sensor_resume(struct i2c_client *client)
+static int epl_sensor_resume(struct device *dev)
 {
+	struct i2c_client *client = to_i2c_client(dev);
 	struct epl_sensor_priv *epld = i2c_get_clientdata(client);
 
 	LOG_FUN();
@@ -3159,21 +3162,19 @@ MODULE_DEVICE_TABLE(of, epl_match_table);
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
+static SIMPLE_DEV_PM_OPS(epl_sensor_pm, epl_sensor_suspend,
+			 epl_sensor_resume);
 static struct i2c_driver epl_sensor_driver = {
 	.probe	= epl_sensor_probe,
 	.remove	= epl_sensor_remove,
 	.id_table	= epl_sensor_id,
 	.driver	= {
 		.name = EPL_DEV_NAME,
-		.owner = THIS_MODULE,
+		.pm = &epl_sensor_pm,
 #ifdef CONFIG_OF
 		.of_match_table = epl_match_table,
 #endif
 	},
-#ifdef CONFIG_SUSPEND
-	.suspend = epl_sensor_suspend,
-	.resume = epl_sensor_resume,
-#endif
 };
 
 static int __init epl_sensor_init(void)
