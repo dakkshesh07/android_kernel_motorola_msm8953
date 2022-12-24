@@ -136,7 +136,7 @@ struct fpc1020_data {
 	struct clk *iface_clk;
 	struct clk *core_clk;
 	struct regulator *vreg[ARRAY_SIZE(vreg_conf)];
-	struct wake_lock wlock;
+	struct wakeup_source wlock;
 
 	struct notifier_block nb;
 
@@ -186,7 +186,7 @@ found:
 					"Unable to set voltage on %s, %d\n",
 					name, rc);
 		}
-		rc = regulator_set_optimum_mode(vreg, vreg_conf[i].ua_load);
+		rc = regulator_set_load(vreg, vreg_conf[i].ua_load);
 		if (rc < 0)
 			dev_err(dev, "Unable to set current on %s, %d\n",
 					name, rc);
@@ -217,7 +217,7 @@ static int __set_clks(struct fpc1020_data *fpc1020, bool enable)
 
 	if (enable) {
 		dev_dbg(fpc1020->dev, "setting clk rates\n");
-		wake_lock(&fpc1020->wlock);
+		__pm_stay_awake(&fpc1020->wlock);
 		rc = clk_set_rate(fpc1020->core_clk,
 				fpc1020->spi->max_speed_hz);
 		if (rc) {
@@ -252,7 +252,7 @@ static int __set_clks(struct fpc1020_data *fpc1020, bool enable)
 		dev_dbg(fpc1020->dev, "disabling clks\n");
 		clk_disable_unprepare(fpc1020->iface_clk);
 		clk_disable_unprepare(fpc1020->core_clk);
-		wake_unlock(&fpc1020->wlock);
+		__pm_relax(&fpc1020->wlock);
 	}
 
 out:
@@ -372,7 +372,7 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {
 	struct fpc1020_data *fpc1020 = handle;
 
-	wake_lock_timeout(&fpc1020->wlock, msecs_to_jiffies(fpc1020->wlock_time));
+	__pm_wakeup_event(&fpc1020->wlock, msecs_to_jiffies(fpc1020->wlock_time));
 	dev_dbg(fpc1020->dev, "%s\n", __func__);
 	fpc1020->irq_cnt++;
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
@@ -464,7 +464,7 @@ static int fpc1020_probe(struct spi_device *spi)
 		goto exit;
 	}
 
-	wake_lock_init(&fpc1020->wlock, WAKE_LOCK_SUSPEND, "fpc1020");
+	wakeup_source_init(&fpc1020->wlock, "fpc1020");
 
 	fpc1020->irq_cnt = 0;
 	fpc1020->clocks_enabled = 0;
@@ -520,14 +520,14 @@ static int fpc1020_remove(struct spi_device *spi)
 	(void)vreg_setup(fpc1020, "vdd_io", false);
 	(void)vreg_setup(fpc1020, "vcc_spi", false);
 	(void)vreg_setup(fpc1020, "vdd_ana", false);
-	wake_lock_destroy(&fpc1020->wlock);
+	wakeup_source_trash(&fpc1020->wlock);
 	dev_info(&spi->dev, "%s\n", __func__);
 	return 0;
 }
 
-static int fpc1020_suspend(struct spi_device *spi, pm_message_t mesg)
+static int fpc1020_suspend(struct device *dev, pm_message_t mesg)
 {
-	struct fpc1020_data *fpc1020 = dev_get_drvdata(&spi->dev);
+	struct fpc1020_data *fpc1020 = dev_get_drvdata(dev);
 
 	fpc1020->clocks_suspended = fpc1020->clocks_enabled;
 	dev_info(fpc1020->dev, "fpc1020_suspend\n");
@@ -536,9 +536,9 @@ static int fpc1020_suspend(struct spi_device *spi, pm_message_t mesg)
 	return 0;
 }
 
-static int fpc1020_resume(struct spi_device *spi)
+static int fpc1020_resume(struct device *dev)
 {
-	struct fpc1020_data *fpc1020 = dev_get_drvdata(&spi->dev);
+	struct fpc1020_data *fpc1020 = dev_get_drvdata(dev);
 
 	if (fpc1020->clocks_suspended) {
 		dev_info(fpc1020->dev, "fpc1020_resume\n");
@@ -558,11 +558,11 @@ static struct spi_driver fpc1020_driver = {
 		.name	= "fpc1020",
 		.owner	= THIS_MODULE,
 		.of_match_table = fpc1020_of_match,
+		.suspend	= fpc1020_suspend,
+		.resume		= fpc1020_resume,
 	},
 	.probe		= fpc1020_probe,
 	.remove		= fpc1020_remove,
-	.suspend	= fpc1020_suspend,
-	.resume		= fpc1020_resume,
 };
 
 static int __init fpc1020_init(void)
