@@ -11,7 +11,7 @@
  */
 
 #include "msm8953.dtsi"
-#include "msm-pmi8950.dtsi"
+#include "pmi8950.dtsi"
 #include "msm8953-pinctrl.dtsi"
 #include "msm8953-potter-pinctrl.dtsi"
 #include "dsi-panel-mot-dummy-qhd-video.dtsi"
@@ -22,6 +22,7 @@
 #include "carrier-channel-ids.dtsi"
 #include "msm8953-potter-sensor.dtsi"
 #include "msm8953-potter-fps.dtsi"
+#include "msm8953-pmi8950.dtsi"
 
 / {
 	model = "potter";
@@ -38,7 +39,7 @@
 		/delete-property/ spi3;
 	};
 
-	reserved-memory {
+	reserved_memory {
 		ramoops_mem: ramoops_mem_region {
 			compatible = "ramoops";
 			ramoops-annotate-size = <RAMOOPS_ANNOTATE_SIZE>;
@@ -704,7 +705,7 @@
 	};
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	status = "okay";
 	/delete-property/ qcom,iterm-ma;
 	qcom,iterm-disabled;
@@ -762,7 +763,7 @@
 	};
 };
 
-&pmi8950_fg {
+&qpnp_fg {
 	status = "okay";
 	qcom,warm-bat-decidegc = <450>;
 	qcom,cool-bat-decidegc = <0>;
@@ -1004,6 +1005,7 @@
 	pinctrl-0 = <&usb_id_active>;
 	pinctrl-1 = <&usb_id_sleep>;
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+	extcon = <&qpnp_smbcharger>;
 };
 
 &pm8953_l6 {
